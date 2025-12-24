@@ -1,8 +1,4 @@
-/**
- * ImageOverlay Component
- * Renders bounding boxes on detected pneumothorax regions
- * Requirements: 5.2, 5.3, 5.4
- */
+
 
 import React, { useState, useRef, useCallback } from "react";
 import {

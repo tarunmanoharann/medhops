@@ -17,7 +17,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as MediaLibrary from "expo-media-library";
-import { Paths, File } from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { useTheme } from "../context/ThemeContext";
 import { Card, Button } from "../components/ui";
 import ImageOverlay from "../components/ImageOverlay";
@@ -61,33 +61,49 @@ export default function ResultScreen() {
 
   // Handle save to gallery
   const handleSave = async () => {
-    try {
-      setSaving(true);
+    setSaving(true);
 
-      const { status } = await MediaLibrary.requestPermissionsAsync();
+    try {
+      // Check if we have a valid local file
+      if (!imageUri.startsWith("file://")) {
+        Alert.alert(
+          "Cannot Save",
+          "Only locally captured images can be saved to gallery.",
+        );
+        setSaving(false);
+        return;
+      }
+
+      const { status } = await MediaLibrary.requestPermissionsAsync(false);
+
       if (status !== "granted") {
         Alert.alert(
           "Permission Required",
           "Please grant permission to save images to your gallery.",
         );
+        setSaving(false);
         return;
       }
 
-      if (imageUri.startsWith("file://")) {
-        await MediaLibrary.saveToLibraryAsync(imageUri);
-        Alert.alert("Success", "Image saved to gallery successfully!");
-      } else {
-        // Download remote image first using static method
-        const downloadedFile = await File.downloadFileAsync(
-          imageUri,
-          Paths.cache,
-        );
-        await MediaLibrary.saveToLibraryAsync(downloadedFile.uri);
-        Alert.alert("Success", "Image saved to gallery successfully!");
-      }
-    } catch (error) {
+      await MediaLibrary.saveToLibraryAsync(imageUri);
+      Alert.alert("Success", "Image saved to gallery successfully!");
+    } catch (error: any) {
       console.error("Save error:", error);
-      Alert.alert("Error", "Failed to save image. Please try again.");
+
+      // Handle Expo Go limitation for media library
+      if (
+        error.message?.includes("AUDIO") ||
+        error.message?.includes("AndroidManifest") ||
+        error.message?.includes("permission")
+      ) {
+        Alert.alert(
+          "Expo Go Limitation",
+          "Saving to gallery requires a development build. Use the Share feature instead.",
+          [{ text: "OK" }],
+        );
+      } else {
+        Alert.alert("Error", "Failed to save image. Please try again.");
+      }
     } finally {
       setSaving(false);
     }

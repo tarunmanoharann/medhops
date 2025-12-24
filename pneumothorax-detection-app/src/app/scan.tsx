@@ -228,12 +228,15 @@ export default function ScanScreen() {
         style={styles.camera}
         facing={facing}
         flash={flash}
-      >
+      />
+
+      {/* Overlay container with absolute positioning */}
+      <View style={styles.overlayContainer} pointerEvents="box-none">
         {/* Alignment guide overlay - Requirement 3.2 */}
         <AlignmentGuide visible={true} />
 
         {/* Top controls bar */}
-        <SafeAreaView style={styles.topBar}>
+        <SafeAreaView style={styles.topBar} pointerEvents="box-none">
           {/* Close button - Requirement 3.8 */}
           <AnimatedControlButton
             onPress={handleClose}
@@ -250,7 +253,11 @@ export default function ScanScreen() {
         </SafeAreaView>
 
         {/* Tips text - Requirement 3.7 */}
-        <View style={styles.tipsContainer} accessibilityLabel="Camera tips">
+        <View
+          style={styles.tipsContainer}
+          accessibilityLabel="Camera tips"
+          pointerEvents="none"
+        >
           <Text style={styles.tipsText}>
             Position the X-ray or CT scan within the frame
           </Text>
@@ -260,7 +267,7 @@ export default function ScanScreen() {
         </View>
 
         {/* Bottom controls bar */}
-        <SafeAreaView style={styles.bottomBar}>
+        <SafeAreaView style={styles.bottomBar} pointerEvents="box-none">
           {/* Camera flip button - Requirement 3.5 */}
           <AnimatedControlButton
             onPress={toggleCameraFacing}
@@ -291,7 +298,7 @@ export default function ScanScreen() {
           {/* Placeholder for symmetry */}
           <View style={styles.sideButton} />
         </SafeAreaView>
-      </CameraView>
+      </View>
 
       {/* Capture preview modal - Requirement 3.6 */}
       <Modal
@@ -357,6 +364,9 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
+  },
+  overlayContainer: {
+    ...StyleSheet.absoluteFillObject,
   },
   // Permission screens
   permissionContainer: {
