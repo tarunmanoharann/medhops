@@ -43,6 +43,9 @@ export default function HistoryScreen() {
         params: {
           imageUri: item.imageUri,
           results: JSON.stringify(result),
+          apiResponse: item.apiResponse
+            ? JSON.stringify(item.apiResponse)
+            : undefined,
         },
       });
     },
@@ -81,6 +84,7 @@ export default function HistoryScreen() {
         detectionsCount={item.detectionsCount}
         onPress={() => handleItemPress(item)}
         onDelete={() => handleDelete(item)}
+        apiResponse={item.apiResponse}
       />
     ),
     [handleItemPress, handleDelete],

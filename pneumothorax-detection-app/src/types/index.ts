@@ -33,6 +33,7 @@ export interface HistoryItem {
   detectionsCount: number;
   averageConfidence: number;
   boundingBoxes: BoundingBox[];
+  apiResponse?: PneumoAPIResponse; // Include API response with mask and overlay images
 }
 
 /**
@@ -91,6 +92,7 @@ export interface HistoryCardProps {
   detectionsCount: number;
   onPress: () => void;
   onDelete: () => void;
+  apiResponse?: PneumoAPIResponse;
 }
 
 /**

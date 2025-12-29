@@ -80,7 +80,7 @@ export default function AnalyzingScreen() {
       const { result, apiResponse } = await analyzeImage(params.imageUri);
 
       // Save to history (Requirement 7.6)
-      await addToHistory(result);
+      await addToHistory(result, apiResponse);
 
       // Navigate to results on completion (Requirement 4.5)
       router.replace({

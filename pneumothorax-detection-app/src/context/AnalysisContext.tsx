@@ -1,5 +1,3 @@
-
-
 import React, {
   createContext,
   useContext,
@@ -9,7 +7,7 @@ import React, {
   ReactNode,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { DetectionResult, HistoryItem } from "../types";
+import { DetectionResult, HistoryItem, PneumoAPIResponse } from "../types";
 
 const HISTORY_STORAGE_KEY = "@pneumothorax_app_history";
 
@@ -18,7 +16,10 @@ interface AnalysisContextValue {
   history: HistoryItem[];
   isLoading: boolean;
   setCurrentAnalysis: (analysis: DetectionResult | null) => void;
-  addToHistory: (result: DetectionResult) => Promise<void>;
+  addToHistory: (
+    result: DetectionResult,
+    apiResponse?: PneumoAPIResponse,
+  ) => Promise<void>;
   removeFromHistory: (id: string) => Promise<void>;
   clearHistory: () => Promise<void>;
   loadHistory: () => Promise<void>;
@@ -71,11 +72,11 @@ export function AnalysisProvider({ children }: AnalysisProviderProps) {
   };
 
   const addToHistory = useCallback(
-    async (result: DetectionResult) => {
+    async (result: DetectionResult, apiResponse?: PneumoAPIResponse) => {
       const historyItem: HistoryItem = {
         id: result.id,
         imageUri: result.imageUri,
-        thumbnailUri: result.imageUri, // Use same URI for thumbnail
+        thumbnailUri: result.imageUri,
         timestamp:
           result.timestamp instanceof Date
             ? result.timestamp.toISOString()
@@ -83,6 +84,7 @@ export function AnalysisProvider({ children }: AnalysisProviderProps) {
         detectionsCount: result.boundingBoxes.length,
         averageConfidence: result.averageConfidence,
         boundingBoxes: result.boundingBoxes,
+        apiResponse: apiResponse,
       };
 
       const newHistory = [historyItem, ...history];

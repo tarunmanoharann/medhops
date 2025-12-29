@@ -1,5 +1,3 @@
-
-
 import React, { useRef, useCallback } from "react";
 import {
   View,
@@ -13,7 +11,7 @@ import {
 import { Swipeable } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
-import { HistoryCardProps } from "../types";
+import { HistoryCardProps, HistoryItem } from "../types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const THUMBNAIL_SIZE = 80;
@@ -25,6 +23,7 @@ export default function HistoryCard({
   detectionsCount,
   onPress,
   onDelete,
+  apiResponse,
 }: HistoryCardProps) {
   const { theme } = useTheme();
 
@@ -113,11 +112,46 @@ export default function HistoryCard({
               { backgroundColor: theme.colors.surfaceVariant },
             ]}
           >
-            <Image
-              source={{ uri: thumbnailUri }}
-              style={styles.thumbnail}
-              resizeMode="cover"
-            />
+            {apiResponse &&
+            (apiResponse.maskImage || apiResponse.overlayImage) ? (
+              <View style={styles.multiImageContainer}>
+                <Image
+                  source={{ uri: apiResponse.originalImage || thumbnailUri }}
+                  style={[styles.thumbnail, styles.mainThumbnail]}
+                  resizeMode="cover"
+                />
+                <View style={styles.smallImagesContainer}>
+                  {apiResponse.maskImage && (
+                    <Image
+                      source={{ uri: apiResponse.maskImage }}
+                      style={[styles.smallThumbnail, styles.topSmall]}
+                      resizeMode="cover"
+                    />
+                  )}
+                  {apiResponse.overlayImage && (
+                    <Image
+                      source={{ uri: apiResponse.overlayImage }}
+                      style={[styles.smallThumbnail, styles.bottomSmall]}
+                      resizeMode="cover"
+                    />
+                  )}
+                </View>
+                <View
+                  style={[
+                    styles.imageIndicator,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
+                >
+                  <Text style={styles.imageCount}>3</Text>
+                </View>
+              </View>
+            ) : (
+              <Image
+                source={{ uri: thumbnailUri }}
+                style={styles.thumbnail}
+                resizeMode="cover"
+              />
+            )}
           </View>
 
           {/* Content */}
@@ -195,6 +229,45 @@ const styles = StyleSheet.create({
   thumbnail: {
     width: "100%",
     height: "100%",
+  },
+  multiImageContainer: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+  },
+  mainThumbnail: {
+    width: "70%",
+    height: "100%",
+  },
+  smallImagesContainer: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: "30%",
+    height: "100%",
+  },
+  smallThumbnail: {
+    width: "100%",
+    height: "48%",
+  },
+  topSmall: {
+    marginBottom: "4%",
+  },
+  bottomSmall: {},
+  imageIndicator: {
+    position: "absolute",
+    bottom: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageCount: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
   },
   content: {
     flex: 1,
