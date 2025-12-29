@@ -1,7 +1,4 @@
-/**
- * HistoryCard component - Individual history list item
- * Requirements: 7.2, 7.3, 7.4
- */
+
 
 import React, { useRef, useCallback } from "react";
 import {

@@ -1,7 +1,4 @@
-/**
- * AnalysisContext - State management for analysis and history
- * Requirements: 7.6
- */
+
 
 import React, {
   createContext,

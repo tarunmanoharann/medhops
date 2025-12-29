@@ -8,12 +8,7 @@ const GUIDE_HEIGHT = GUIDE_WIDTH * 1.2; // Aspect ratio for X-ray images
 const CORNER_SIZE = 30;
 const CORNER_THICKNESS = 4;
 
-/**
- * AlignmentGuide component
- * Renders a semi-transparent overlay with a clear center cutout
- * and corner markers to help users frame medical images
- * Requirements: 3.2
- */
+
 export default function AlignmentGuide({ visible }: AlignmentGuideProps) {
   if (!visible) return null;
 

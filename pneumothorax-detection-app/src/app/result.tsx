@@ -13,15 +13,15 @@ import {
   Dimensions,
   Alert,
   Share,
+  Image,
+  Pressable,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as MediaLibrary from "expo-media-library";
-import * as FileSystem from "expo-file-system/legacy";
 import { useTheme } from "../context/ThemeContext";
 import { Card, Button } from "../components/ui";
-import ImageOverlay from "../components/ImageOverlay";
-import { DetectionResult, BoundingBox } from "../types";
+import { DetectionResult, PneumoAPIResponse } from "../types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -31,21 +31,23 @@ export default function ResultScreen() {
   const params = useLocalSearchParams<{
     imageUri: string;
     results: string;
+    apiResponse: string;
   }>();
 
   // Parse results from params
   const results: DetectionResult | null = params.results
     ? JSON.parse(params.results)
     : null;
+  const apiResponse: PneumoAPIResponse | null = params.apiResponse
+    ? JSON.parse(params.apiResponse)
+    : null;
   const imageUri = params.imageUri || "";
 
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
-
-  // Calculate summary statistics
-  const detectionsCount = results?.boundingBoxes?.length || 0;
-  const averageConfidence = results?.averageConfidence || 0;
-  const hasDetections = detectionsCount > 0;
+  const [activeTab, setActiveTab] = useState<"original" | "mask" | "overlay">(
+    "overlay",
+  );
 
   // Format timestamp
   const formatTimestamp = (date: Date | string): string => {
@@ -114,9 +116,7 @@ export default function ResultScreen() {
     try {
       setSharing(true);
 
-      const message = hasDetections
-        ? `Pneumothorax Detection Analysis\n\nDetections: ${detectionsCount}\nAverage Confidence: ${Math.round(averageConfidence * 100)}%\n\nAnalyzed on: ${formatTimestamp(results?.timestamp || new Date())}`
-        : `Pneumothorax Detection Analysis\n\nNo pneumothorax detected.\n\nAnalyzed on: ${formatTimestamp(results?.timestamp || new Date())}`;
+      const message = `Pneumothorax Detection Analysis\n\nAnalyzed on: ${formatTimestamp(results?.timestamp || new Date())}`;
 
       await Share.share({
         message,
@@ -132,11 +132,6 @@ export default function ResultScreen() {
   // Handle new analysis
   const handleNewAnalysis = () => {
     router.replace("/(tabs)");
-  };
-
-  // Handle box press
-  const handleBoxPress = (box: BoundingBox) => {
-    console.log("Box pressed:", box.id);
   };
 
   return (
@@ -161,6 +156,76 @@ export default function ResultScreen() {
 
       {/* Image with Overlays */}
       <View style={styles.imageSection}>
+        {/* Tab selector for different views */}
+        {apiResponse && (apiResponse.maskImage || apiResponse.overlayImage) && (
+          <View
+            style={[
+              styles.tabContainer,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
+            <Pressable
+              style={[
+                styles.tab,
+                activeTab === "original" && {
+                  backgroundColor: theme.colors.primary,
+                },
+              ]}
+              onPress={() => setActiveTab("original")}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color:
+                      activeTab === "original" ? "#fff" : theme.colors.text,
+                  },
+                ]}
+              >
+                Original
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.tab,
+                activeTab === "mask" && {
+                  backgroundColor: theme.colors.primary,
+                },
+              ]}
+              onPress={() => setActiveTab("mask")}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: activeTab === "mask" ? "#fff" : theme.colors.text },
+                ]}
+              >
+                Mask
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.tab,
+                activeTab === "overlay" && {
+                  backgroundColor: theme.colors.primary,
+                },
+              ]}
+              onPress={() => setActiveTab("overlay")}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color: activeTab === "overlay" ? "#fff" : theme.colors.text,
+                  },
+                ]}
+              >
+                Overlay
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
         <ScrollView
           horizontal
           maximumZoomScale={4}
@@ -176,100 +241,49 @@ export default function ResultScreen() {
               { backgroundColor: theme.colors.surfaceVariant },
             ]}
           >
-            <ImageOverlay
-              imageUri={imageUri}
-              boundingBoxes={results?.boundingBoxes || []}
-              onBoxPress={handleBoxPress}
-              showLabels={true}
-            />
+            {activeTab === "original" && (
+              <Image
+                source={{ uri: apiResponse?.originalImage || imageUri }}
+                style={styles.resultImage}
+                resizeMode="contain"
+              />
+            )}
+            {activeTab === "mask" && apiResponse?.maskImage && (
+              <Image
+                source={{ uri: apiResponse.maskImage }}
+                style={styles.resultImage}
+                resizeMode="contain"
+              />
+            )}
+            {activeTab === "overlay" && (
+              <Image
+                source={{ uri: apiResponse?.overlayImage || imageUri }}
+                style={styles.resultImage}
+                resizeMode="contain"
+              />
+            )}
           </View>
         </ScrollView>
 
         <Text style={[styles.zoomHint, { color: theme.colors.textSecondary }]}>
-          Pinch to zoom • Tap detection boxes for details
+          Pinch to zoom • Switch tabs to view different visualizations
         </Text>
       </View>
 
-      {/* Summary Card */}
-      <Card style={styles.summaryCard} variant="elevated">
-        {hasDetections ? (
-          <View
-            accessibilityLabel={`Pneumothorax detected. ${detectionsCount} detection${detectionsCount !== 1 ? "s" : ""} with ${Math.round(averageConfidence * 100)}% average confidence`}
-          >
-            <View style={styles.summaryHeader}>
-              <Ionicons name="warning" size={24} color={theme.colors.warning} />
-              <Text style={[styles.summaryTitle, { color: theme.colors.text }]}>
-                Pneumothorax Detected
-              </Text>
-            </View>
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text
-                  style={[styles.statValue, { color: theme.colors.detection }]}
-                  accessibilityLabel={`${detectionsCount} detection${detectionsCount !== 1 ? "s" : ""}`}
-                >
-                  {detectionsCount}
-                </Text>
-                <Text
-                  style={[
-                    styles.statLabel,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
-                  Detection{detectionsCount !== 1 ? "s" : ""}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statDivider,
-                  { backgroundColor: theme.colors.border },
-                ]}
-              />
-              <View style={styles.statItem}>
-                <Text
-                  style={[styles.statValue, { color: theme.colors.primary }]}
-                  accessibilityLabel={`${Math.round(averageConfidence * 100)} percent average confidence`}
-                >
-                  {Math.round(averageConfidence * 100)}%
-                </Text>
-                <Text
-                  style={[
-                    styles.statLabel,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
-                  Avg. Confidence
-                </Text>
-              </View>
-            </View>
-          </View>
-        ) : (
-          <View
-            style={styles.noDetectionContainer}
-            accessibilityLabel="No pneumothorax detected in this image"
-          >
-            <Ionicons
-              name="checkmark-circle"
-              size={48}
-              color={theme.colors.success}
-            />
-            <Text
-              style={[styles.noDetectionText, { color: theme.colors.text }]}
-            >
-              No Pneumothorax Detected
-            </Text>
-            <Text
-              style={[
-                styles.noDetectionSubtext,
-                { color: theme.colors.textSecondary },
-              ]}
-            >
-              The analysis did not identify any signs of pneumothorax in this
-              image.
+      {/* Diagnosis Card */}
+      {apiResponse?.diagnosis && (
+        <Card style={styles.diagnosisCard} variant="default">
+          <View style={styles.diagnosisHeader}>
+            <Ionicons name="medical" size={20} color={theme.colors.primary} />
+            <Text style={[styles.diagnosisTitle, { color: theme.colors.text }]}>
+              AI Diagnosis
             </Text>
           </View>
-        )}
-      </Card>
+          <Text style={[styles.diagnosisText, { color: theme.colors.text }]}>
+            {apiResponse.diagnosis}
+          </Text>
+        </Card>
+      )}
 
       {/* Medical Disclaimer Banner */}
       <View
@@ -346,6 +360,23 @@ const styles = StyleSheet.create({
   imageSection: {
     marginBottom: 16,
   },
+  tabContainer: {
+    flexDirection: "row",
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: 12,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: "center",
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
   zoomContainer: {
     alignItems: "center",
     justifyContent: "center",
@@ -356,59 +387,31 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
   },
+  resultImage: {
+    width: "100%",
+    height: "100%",
+  },
   zoomHint: {
     fontSize: 12,
     textAlign: "center",
     marginTop: 8,
   },
-  summaryCard: {
+  diagnosisCard: {
     marginBottom: 16,
   },
-  summaryHeader: {
+  diagnosisHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  summaryTitle: {
-    fontSize: 18,
+  diagnosisTitle: {
+    fontSize: 16,
     fontWeight: "600",
     marginLeft: 8,
   },
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-  },
-  statItem: {
-    alignItems: "center",
-    flex: 1,
-  },
-  statValue: {
-    fontSize: 32,
-    fontWeight: "bold",
-  },
-  statLabel: {
+  diagnosisText: {
     fontSize: 14,
-    marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
-    height: 48,
-  },
-  noDetectionContainer: {
-    alignItems: "center",
-    paddingVertical: 16,
-  },
-  noDetectionText: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginTop: 12,
-  },
-  noDetectionSubtext: {
-    fontSize: 14,
-    textAlign: "center",
-    marginTop: 8,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   disclaimerBanner: {
     flexDirection: "row",

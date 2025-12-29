@@ -4,7 +4,7 @@
  * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -13,11 +13,13 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Pressable,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
 import { useAnalysis } from "../context/AnalysisContext";
-import { analyzeImage } from "../services/mockDetection";
+import { analyzeImage } from "../services/pneumoDetection";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -74,20 +76,19 @@ export default function AnalyzingScreen() {
     }
 
     try {
-      // Call mock detection service (Requirement 4.4: 2-3 second delay)
-      const results = await analyzeImage(params.imageUri, {
-        simulateDelay: 2500,
-      });
+      // Call pneumothorax detection API
+      const { result, apiResponse } = await analyzeImage(params.imageUri);
 
       // Save to history (Requirement 7.6)
-      await addToHistory(results);
+      await addToHistory(result);
 
       // Navigate to results on completion (Requirement 4.5)
       router.replace({
         pathname: "/result",
         params: {
           imageUri: params.imageUri,
-          results: JSON.stringify(results),
+          results: JSON.stringify(result),
+          apiResponse: JSON.stringify(apiResponse),
         },
       });
     } catch (error) {

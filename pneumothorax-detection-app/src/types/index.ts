@@ -1,12 +1,3 @@
-/**
- * TypeScript interfaces for Pneumothorax Detection App
- * Requirements: 5.2, 5.5, 7.2
- */
-
-/**
- * Represents a detected region on the medical image
- * Used by the Overlay_Renderer to draw highlighted regions
- */
 export interface BoundingBox {
   id: number;
   x: number; // percentage 0-100
@@ -122,9 +113,11 @@ export interface AlignmentGuideProps {
 }
 
 /**
- * Options for mock detection service
+ * API response from pneumopredictor Gradio API
  */
-export interface MockDetectionOptions {
-  simulateDelay?: number; // default 2500ms
-  detectPneumothorax?: boolean; // default random
+export interface PneumoAPIResponse {
+  originalImage: string; // URL to original X-ray
+  maskImage: string; // URL to predicted pneumothorax mask
+  overlayImage: string; // URL to overlay visualization
+  diagnosis: string; // Markdown diagnosis text
 }
