@@ -47,7 +47,7 @@ export default function HomeScreen() {
       accessibilityLabel="Home screen"
     >
       {/* Logo and Title Section */}
-      <View style={styles.headerSection} accessibilityRole="header">
+      <View style={styles.headerSection}>
         <View
           style={[
             styles.logoContainer,

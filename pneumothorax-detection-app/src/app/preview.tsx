@@ -7,6 +7,7 @@ import {
   ScrollView,
   Dimensions,
   Alert,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,22 +25,33 @@ interface ImageInfo {
   uri: string;
 }
 
+const isWeb = Platform.OS === "web";
+
 export default function PreviewScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ imageUri: string; source: string }>();
 
+  const [imageUri, setImageUri] = useState<string>(params.imageUri || "");
   const [imageInfo, setImageInfo] = useState<ImageInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
-    loadImageInfo();
+    if (params.imageUri) {
+      setImageUri(params.imageUri);
+    }
   }, [params.imageUri]);
 
+  useEffect(() => {
+    if (imageUri) {
+      loadImageInfo();
+    }
+  }, [imageUri]);
+
   const loadImageInfo = async () => {
-    if (!params.imageUri) {
+    if (!imageUri) {
       setError("No image selected");
       setLoading(false);
       return;
@@ -49,33 +61,71 @@ export default function PreviewScreen() {
       setLoading(true);
       setError(null);
 
-      // Get file info
-      const fileInfo = await FileSystem.getInfoAsync(params.imageUri);
-
-      if (!fileInfo.exists) {
-        setError("Image file not found");
-        setLoading(false);
-        return;
-      }
+      let fileName = "Unknown";
+      let fileSize = "Unknown";
 
       // Extract file name from URI
-      const uriParts = params.imageUri.split("/");
-      const fileName = uriParts[uriParts.length - 1] || "Unknown";
+      const uriParts = imageUri.split("/");
+      fileName = uriParts[uriParts.length - 1] || "Unknown";
+      // Clean up query params if present (common in web blob URLs)
+      if (fileName.includes("?")) {
+        fileName = fileName.split("?")[0];
+      }
 
-      // Format file size
-      const fileSizeBytes = fileInfo.size || 0;
-      const fileSize = formatFileSize(fileSizeBytes);
+      if (isWeb) {
+        // On web, try to fetch the blob to get size
+        try {
+          if (!imageUri.startsWith("data:")) {
+            const response = await fetch(imageUri);
+            const blob = await response.blob();
+            fileSize = formatFileSize(blob.size);
+          } else {
+            // For data URLs, estimate size from base64
+            const base64Length = imageUri.split(",")[1]?.length || 0;
+            fileSize = formatFileSize(Math.floor(base64Length * 0.75));
+          }
+        } catch {
+          fileSize = "Unknown";
+        }
+      } else {
+        // On native, use FileSystem
+        const fileInfo = await FileSystem.getInfoAsync(imageUri);
+
+        if (!fileInfo.exists) {
+          setError("Image file not found");
+          setLoading(false);
+          return;
+        }
+
+        const fileSizeBytes = fileInfo.size || 0;
+        fileSize = formatFileSize(fileSizeBytes);
+      }
 
       setImageInfo({
         fileName,
         fileSize,
-        uri: params.imageUri,
+        uri: imageUri,
       });
       setLoading(false);
     } catch (err) {
       console.error("Error loading image info:", err);
-      setError("Failed to load image information");
-      setLoading(false);
+      // On web, still allow proceeding even if we can't get file info
+      if (isWeb) {
+        const uriParts = imageUri.split("/");
+        let fileName = uriParts[uriParts.length - 1] || "Image";
+        if (fileName.includes("?")) {
+          fileName = fileName.split("?")[0];
+        }
+        setImageInfo({
+          fileName,
+          fileSize: "Unknown",
+          uri: imageUri,
+        });
+        setLoading(false);
+      } else {
+        setError("Failed to load image information");
+        setLoading(false);
+      }
     }
   };
 
@@ -88,12 +138,20 @@ export default function PreviewScreen() {
   };
 
   const handleAnalyze = () => {
-    if (!params.imageUri) return;
+    if (!imageUri) return;
 
     setAnalyzing(true);
     router.push({
       pathname: "/analyzing",
-      params: { imageUri: params.imageUri },
+      params: { imageUri: imageUri },
+    });
+  };
+
+  const handleCrop = () => {
+    if (!imageUri) return;
+    router.push({
+      pathname: "/crop",
+      params: { imageUri: imageUri },
     });
   };
 
@@ -301,8 +359,7 @@ export default function PreviewScreen() {
               { color: theme.colors.textSecondary },
             ]}
           >
-            Tap "Analyze Image" to detect potential pneumothorax regions in this
-            image.
+            Tap "Crop" to select a region, or "Analyze" to detect pneumothorax.
           </Text>
         </View>
       </ScrollView>
@@ -322,12 +379,21 @@ export default function PreviewScreen() {
           onPress={handleCancel}
           variant="outline"
           icon="close-outline"
-          style={styles.cancelButton}
+          style={styles.smallButton}
           testID="cancel-button"
           accessibilityHint="Returns to the previous screen without analyzing"
         />
         <Button
-          title="Analyze Image"
+          title="Crop"
+          onPress={handleCrop}
+          variant="outline"
+          icon="crop-outline"
+          style={styles.smallButton}
+          testID="crop-button"
+          accessibilityHint="Opens crop tool to select a region of the image"
+        />
+        <Button
+          title="Analyze"
           onPress={handleAnalyze}
           variant="primary"
           icon="scan-outline"
@@ -444,7 +510,10 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
   },
+  smallButton: {
+    flex: 1,
+  },
   analyzeButton: {
-    flex: 2,
+    flex: 1.5,
   },
 });

@@ -1,9 +1,74 @@
 import { DetectionResult, BoundingBox } from "../types";
+import * as ImageManipulator from "expo-image-manipulator";
+import { Platform } from "react-native";
 
 const API_BASE = "https://yashwanthsc-pneumopredictor.hf.space";
+const TARGET_SIZE = 256;
+const isWeb = Platform.OS === "web";
 
 function generateId(): string {
   return `detection-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+/**
+ * Resize image to 256x256 using Canvas API (web only)
+ */
+async function resizeImageWeb(imageUri: string): Promise<string> {
+  console.log("Resizing image on web to 256x256...");
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = TARGET_SIZE;
+      canvas.height = TARGET_SIZE;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Failed to get canvas context"));
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, TARGET_SIZE, TARGET_SIZE);
+      const resizedUri = canvas.toDataURL("image/png", 0.8);
+      console.log("Image resized successfully on web");
+      resolve(resizedUri);
+    };
+
+    img.onerror = () => {
+      reject(new Error("Failed to load image for resizing"));
+    };
+
+    img.src = imageUri;
+  });
+}
+
+/**
+ * Resize image to 256x256 using expo-image-manipulator (native only)
+ */
+async function resizeImageNative(imageUri: string): Promise<string> {
+  console.log("Resizing image on native to 256x256...");
+
+  const result = await ImageManipulator.manipulateAsync(
+    imageUri,
+    [{ resize: { width: TARGET_SIZE, height: TARGET_SIZE } }],
+    { compress: 0.8, format: ImageManipulator.SaveFormat.PNG },
+  );
+
+  console.log("Image resized successfully:", result.uri);
+  return result.uri;
+}
+
+/**
+ * Resize image to 256x256 before sending to API
+ */
+async function resizeImage(imageUri: string): Promise<string> {
+  if (isWeb) {
+    return resizeImageWeb(imageUri);
+  }
+  return resizeImageNative(imageUri);
 }
 
 export interface PneumoAPIResponse {
@@ -13,18 +78,42 @@ export interface PneumoAPIResponse {
   diagnosis: string;
 }
 
+/**
+ * Convert data URL to Blob (for web)
+ */
+function dataURLtoBlob(dataURL: string): Blob {
+  const arr = dataURL.split(",");
+  const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+}
+
 async function uploadImageToGradio(imageUri: string): Promise<string> {
   console.log("Uploading image to Gradio...");
 
   const formData = new FormData();
 
-  const imageData = {
-    uri: imageUri,
-    type: "image/png",
-    name: "xray.png",
-  } as any;
-
-  formData.append("files", imageData);
+  if (isWeb) {
+    // On web, convert data URL to Blob and append as File
+    const blob = imageUri.startsWith("data:")
+      ? dataURLtoBlob(imageUri)
+      : await fetch(imageUri).then((r) => r.blob());
+    const file = new File([blob], "xray.png", { type: "image/png" });
+    formData.append("files", file);
+  } else {
+    // On native, use the RN file object format
+    const imageData = {
+      uri: imageUri,
+      type: "image/png",
+      name: "xray.png",
+    } as any;
+    formData.append("files", imageData);
+  }
 
   const uploadResponse = await fetch(`${API_BASE}/gradio_api/upload`, {
     method: "POST",
@@ -107,15 +196,23 @@ async function predictWithGradioAPI(filePath: string): Promise<any> {
 async function predictWithBase64(imageUri: string): Promise<any> {
   console.log("Trying base64 prediction...");
 
-  const response = await fetch(imageUri);
-  const blob = await response.blob();
+  let base64: string;
 
-  const base64 = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+  // If already a data URL (from web resize), use directly
+  if (imageUri.startsWith("data:")) {
+    base64 = imageUri;
+  } else {
+    // Otherwise fetch and convert to base64
+    const response = await fetch(imageUri);
+    const blob = await response.blob();
+
+    base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
 
   const callResponse = await fetch(`${API_BASE}/gradio_api/call/predict`, {
     method: "POST",
@@ -184,14 +281,17 @@ export async function analyzeImage(
   try {
     console.log("Starting pneumothorax analysis...");
 
+    // Resize image to 256x256 before sending to API
+    const resizedImageUri = await resizeImage(imageUri);
+
     let prediction: any;
 
     try {
-      const filePath = await uploadImageToGradio(imageUri);
+      const filePath = await uploadImageToGradio(resizedImageUri);
       prediction = await predictWithGradioAPI(filePath);
     } catch (uploadError) {
       console.log("Upload approach failed, trying base64:", uploadError);
-      prediction = await predictWithBase64(imageUri);
+      prediction = await predictWithBase64(resizedImageUri);
     }
 
     const processingTime = Date.now() - startTime;
