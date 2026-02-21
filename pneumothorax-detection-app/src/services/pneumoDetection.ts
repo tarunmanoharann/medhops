@@ -307,15 +307,21 @@ export async function analyzeImage(
     console.log("Diagnosis:", apiResponse.diagnosis);
 
     const diagLower = apiResponse.diagnosis.toLowerCase();
-    const hasDetection =
+    
+    // Check for explicit "no pneumothorax" indicators first
+    const isNegative =
+      diagLower.includes("no pneumothorax") ||
+      diagLower.includes("not detected") ||
+      diagLower.includes("negative") ||
+      apiResponse.diagnosis.includes("🟢");
+    
+    // Check for positive detection indicators
+    const isPositive =
       diagLower.includes("pneumothorax detected") ||
       diagLower.includes("positive") ||
-      diagLower.includes("🔴") ||
-      (diagLower.includes("pneumothorax") &&
-        !diagLower.includes("no pneumothorax") &&
-        !diagLower.includes("not detected") &&
-        !diagLower.includes("negative") &&
-        !diagLower.includes("🟢"));
+      apiResponse.diagnosis.includes("🔴");
+    
+    const hasDetection = isPositive && !isNegative;
 
     let confidence = 0;
     const match = apiResponse.diagnosis.match(/(\d+(?:\.\d+)?)\s*%/);
@@ -324,6 +330,19 @@ export async function analyzeImage(
     }
 
     const boundingBoxes: BoundingBox[] = [];
+    
+    // If pneumothorax is detected, add a placeholder bounding box
+    // This ensures detectionsCount is correct in history
+    if (hasDetection) {
+      boundingBoxes.push({
+        id: 1,
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        confidence: confidence,
+      });
+    }
 
     return {
       result: {

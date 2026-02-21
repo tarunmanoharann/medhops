@@ -11,6 +11,7 @@ import {
   FlatList,
   RefreshControl,
   Alert,
+  TouchableOpacity,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,7 +22,7 @@ import { HistoryItem, DetectionResult } from "../../types";
 
 export default function HistoryScreen() {
   const { theme } = useTheme();
-  const { history, isLoading, removeFromHistory, loadHistory } = useAnalysis();
+  const { history, isLoading, removeFromHistory, loadHistory, clearHistory } = useAnalysis();
   const router = useRouter();
 
   // Handle item press - navigate to result view
@@ -74,6 +75,25 @@ export default function HistoryScreen() {
     [removeFromHistory],
   );
 
+  // Handle clear all history with confirmation
+  const handleClearAll = useCallback(() => {
+    Alert.alert(
+      "Clear All History",
+      `Are you sure you want to delete all ${history.length} ${history.length !== 1 ? "analyses" : "analysis"}? This action cannot be undone.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Clear All",
+          style: "destructive",
+          onPress: () => clearHistory(),
+        },
+      ],
+    );
+  }, [history.length, clearHistory]);
+
   // Render individual history item
   const renderItem = useCallback(
     ({ item }: { item: HistoryItem }) => (
@@ -123,17 +143,35 @@ export default function HistoryScreen() {
     >
       {/* Header */}
       <View style={styles.header} accessibilityRole="header">
-        <Text style={[styles.title, { color: theme.colors.text }]}>
-          Analysis History
-        </Text>
-        {history.length > 0 && (
-          <Text
-            style={[styles.count, { color: theme.colors.textSecondary }]}
-            accessibilityLabel={`${history.length} ${history.length !== 1 ? "analyses" : "analysis"} in history`}
-          >
-            {history.length} analysis{history.length !== 1 ? "es" : ""}
-          </Text>
-        )}
+        <View style={styles.headerTop}>
+          <View style={styles.headerLeft}>
+            <Text style={[styles.title, { color: theme.colors.text }]}>
+              Analysis History
+            </Text>
+            {history.length > 0 && (
+              <Text
+                style={[styles.count, { color: theme.colors.textSecondary }]}
+                accessibilityLabel={`${history.length} ${history.length !== 1 ? "analyses" : "analysis"} in history`}
+              >
+                {history.length} analysis{history.length !== 1 ? "es" : ""}
+              </Text>
+            )}
+          </View>
+          {history.length > 0 && (
+            <TouchableOpacity
+              style={[styles.clearButton, { borderColor: theme.colors.error }]}
+              onPress={handleClearAll}
+              accessibilityLabel="Clear all history"
+              accessibilityRole="button"
+              accessibilityHint="Deletes all analysis history"
+            >
+              <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
+              <Text style={[styles.clearButtonText, { color: theme.colors.error }]}>
+                Clear All
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* History List */}
@@ -171,6 +209,14 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 8,
   },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  headerLeft: {
+    flex: 1,
+  },
   title: {
     fontSize: 28,
     fontWeight: "bold",
@@ -178,6 +224,19 @@ const styles = StyleSheet.create({
   count: {
     fontSize: 14,
     marginTop: 4,
+  },
+  clearButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 6,
+  },
+  clearButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   listContent: {
     paddingVertical: 8,
