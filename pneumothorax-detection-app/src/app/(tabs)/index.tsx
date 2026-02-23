@@ -85,9 +85,7 @@ export default function HomeScreen() {
             { color: theme.colors.textSecondary },
           ]}
         >
-          Upload or scan chest X-ray and CT scan images to detect potential
-          pneumothorax (collapsed lung) regions. Our AI-powered analysis
-          highlights areas of concern with confidence scores.
+          Upload or scan chest X-ray and CT scan images
         </Text>
       </View>
 
@@ -113,54 +111,9 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Info Section */}
-      <View style={styles.infoSection} accessibilityLabel="App features">
-        <View style={styles.infoItem} accessibilityLabel="Secure and private">
-          <Ionicons
-            name="shield-checkmark-outline"
-            size={24}
-            color={theme.colors.success}
-          />
-          <Text
-            style={[styles.infoText, { color: theme.colors.textSecondary }]}
-          >
-            Secure & Private
-          </Text>
-        </View>
-        <View style={styles.infoItem} accessibilityLabel="Fast analysis">
-          <Ionicons
-            name="flash-outline"
-            size={24}
-            color={theme.colors.warning}
-          />
-          <Text
-            style={[styles.infoText, { color: theme.colors.textSecondary }]}
-          >
-            Fast Analysis
-          </Text>
-        </View>
-        <View style={styles.infoItem} accessibilityLabel="AI powered">
-          <Ionicons
-            name="analytics-outline"
-            size={24}
-            color={theme.colors.primary}
-          />
-          <Text
-            style={[styles.infoText, { color: theme.colors.textSecondary }]}
-          >
-            AI Powered
-          </Text>
-        </View>
-      </View>
+      
 
-      {/* Disclaimer */}
-      <Text
-        style={[styles.disclaimer, { color: theme.colors.textSecondary }]}
-        accessibilityLabel="Medical disclaimer"
-      >
-        This app is for educational purposes only and should not be used as a
-        substitute for professional medical diagnosis.
-      </Text>
+     
     </ScrollView>
   );
 }
